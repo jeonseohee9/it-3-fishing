@@ -1,52 +1,53 @@
-# 받아온 Body에서 userId, userPW를 전달받기
-from json_util.json_io import dict_to_json_file, file_open, json_file_to_dict
+import json
+from pathlib import Path
 
+MEMBER_FILE = "member.json"
 
-def signup(dict_data):
+def load_json():
+    if not Path(MEMBER_FILE).exists():
+        return {}
+    with open(MEMBER_FILE, "r", encoding="utf-8") as f:
+        try:
+            return json.load(f)
+        except json.JSONDecodeError:
+            return {}
 
-    userId = dict_data['userId']
-    pw = dict_data['password']
+def save_json(data):
+    with open(MEMBER_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)
 
-    userData = json_file_to_dict()
-    print('before:', userData)
-    if userId not in userData :
-        userData[userId] = {
-            "pw": pw,
-            "userId": userId,
-            "day": 1,
-            "stamina": 100, 
-            "money": 500000,
-            "work_count": 0, 
-            "stock": {
-                "NDVA": 150000, 
-                "DSL": 300000
-            }, 
-            "player_shares": {
-                "NDVA": 0, 
-                "DSL": 0
-            }, 
-            "total_shares": {
-                "NDVA": 1000000, 
-                "DSL": 2000000
-	        },
-        }
-        # 회원가입한 정보 userData.json에 업데이트
-        # (함수 활용 & 함수 수정 필요)
-        dict_to_json_file(userData)
-        return { "success" : True}
+def signup(data):
+    player_id = data.get("player_id")
+    password = data.get("password")
+    if not player_id or not password:
+        return {"success": False, "message": "ID와 비밀번호를 입력하세요."}
 
-    return { "success" : False}
+    members = load_json()
+    if player_id in members:
+        return {"success": False, "message": "이미 존재하는 사용자입니다."}
 
+    members[player_id] = {
+        "password": password,
+        "nickname": data.get("nickname", "New Player"),
+        "email": data.get("email", ""),
+        "money": 5000,
+        "level": 1,
+        "rod_level": 1,
+        "bait_inventory": {"1": 5},
+        "unlocked_sites": [1],
+        "Fish_cnt": [0] * 25,
+        "Fish_list": [0] * 25
+    }
+    save_json(members)
+    return {"success": True, "player_id": player_id, "message": "회원가입 성공"}
 
-def login(dict_data):
+def login(data):
+    player_id = data.get("player_id")
+    password = data.get("password")
+    members = load_json()
 
-    userId = dict_data['userId']
-    pw = dict_data['password']
-    
-    userData = json_file_to_dict()
-    
-    if userId in userData and userData[userId]["pw"] == pw:
-        dict_to_json_file(userData)
-        return { "success" : True, "data" : userData[userId]}
-    else:
-        return { "success" : False}
+    player = members.get(player_id)
+    if not player or player.get("password") != password:
+        return {"success": False, "message": "로그인 실패"}
+
+    return {"success": True, "player_id": player_id, "data": player}

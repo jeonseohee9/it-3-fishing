@@ -1,70 +1,112 @@
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse
-from json_util.json_io import dict_to_json_data, json_data_to_dict
+import json
+
 import funtion.account as account
-import funtion.day as day
-import funtion.stock as stock
-import funtion.work as work
+import funtion.unlock as unlock
+import funtion.rod as rod
+import funtion.fishing as fishing
+import funtion.bait as bait
+import funtion.fishSell as fishSell
+import funtion.inventory as inventory
+import funtion.encyclopedia_all as encyclopedia_all
+import funtion.encyclopedia_single as encyclopedia_single
 
 
-class WebRequestHandler(BaseHTTPRequestHandler):
+class FishingHandler(BaseHTTPRequestHandler):
 
-    def make_header(self):
-        self.send_response(200)
-        self.send_header('Content-type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')
+    def _send_json(self, data, status=200):
+        """JSON 응답 헬퍼"""
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
         self.end_headers()
+        self.wfile.write(json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8"))
 
-    def divide_path(self) -> tuple:
-        service_with_query_params = urlparse(self.path)
-        servie_name = service_with_query_params.path
-        query_params = service_with_query_params.query
-
-        return servie_name, query_params
-
-    # CORS 방지
-    def do_OPTIONS(self):
-        self.send_response(200, "ok")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.end_headers()
+    def _get_body(self):
+        """요청 body 파싱"""
+        content_length = int(self.headers.get("Content-Length", 0))
+        if content_length == 0:
+            return {}
+        return json.loads(self.rfile.read(content_length).decode("utf-8"))
 
     def do_POST(self):
-        self.make_header()
-        service_name, _ = self.divide_path()
-        print(service_name, _)
-        print(type(service_name))
-    
-        json_data = self.rfile.read(int(self.headers['Content-Length'])).decode('utf-8')
-        body = json_data_to_dict(json_data)
-        result = {}
+        parsed = urlparse(self.path)
+        path = parsed.path
+        body = self._get_body()
 
-        # 서비스에 따라, 적절한 메소드를 호출한다.
-        if service_name == '/signup':
+        # 회원가입
+        if path == "/signup":
             result = account.signup(body)
+            self._send_json(result)
 
-        if service_name == '/login':
+        # 로그인
+        elif path == "/login":
             result = account.login(body)
+            self._send_json(result)
 
-        if service_name == '/sleep':
-            result = day.sleep(body["userId"])
+        # 낚싯대 강화
+        elif path == "/rod/upgrade":
+            player_id = body.get("player_id")
+            result = rod.upgrade_rod_level1to5(player_id)
+            self._send_json(result)
 
-        if service_name == '/change':
-            result = stock.change_stock(body["userId"])
+        # 낚시 시도
+        elif path == "/fishing":
+            player_id = body.get("player_id")
+            bait_id = body.get("bait_id")
+            result = fishing.attempt_fishing(player_id, bait_id)
+            self._send_json(result)
 
-        if service_name == '/buy_stocks':
-            result = stock.buy_stock(body["userId"], body["stockName"], body["count"])
-            
-        if service_name == '/sell_stocks':
-            result = stock.sell_stock(body["userId"], body["stockName"], body["count"])
-                  
-        if service_name == '/work':
-            result = work.work(body["userId"], body["workId"])
+        # 미끼 구매
+        elif path == "/bait/buy":
+            player_id = body.get("player_id")
+            bait_id = body.get("bait_id")
+            quantity = body.get("quantity", 1)
+            result = bait.buy_bait(player_id, bait_id, quantity)
+            self._send_json(result)
 
-        if result:
-            result_data = dict_to_json_data(result)
-            self.wfile.write(result_data.encode('utf-8'))
+        # 물고기 판매
+        elif path == "/fish/sell":
+            player_id = body.get("player_id")
+            fish_id = body.get("fish_id")
+            quantity = body.get("quantity", 1)  
+            result = fishSell.sell_fish(player_id, fish_id, quantity)
+            self._send_json(result)
 
-server = HTTPServer(("0.0.0.0", 8081), WebRequestHandler)
-server.serve_forever()
+        # 인벤토리 조회
+        elif path == "/inventory":
+            player_id = body.get("player_id")
+            result = inventory.get_inventory(player_id)
+            self._send_json(result)
+
+        # 낚시터 해금
+        elif path == "/unlock":
+            player_id = body.get("player_id")
+            result = unlock.unlock(player_id)
+            self._send_json(result)
+
+        # 도감 전체 조회
+        elif path == "/encyclopedia":
+            player_id = body.get("player_id")
+            result = encyclopedia_all.get_player_fish_data(player_id)
+            self._send_json(result)
+
+        # 도감 개별 조회
+        elif path == "/encyclopedia/fish":
+            player_id = body.get("player_id")
+            fish_id = body.get("fish_id")
+            result = encyclopedia_single.get_fish_info(player_id, fish_id)
+            self._send_json(result)
+
+        else:
+            self._send_json({"error": "Invalid API endpoint"}, status=404)
+
+
+def run():
+    server = HTTPServer(("", 8000), FishingHandler)
+    print("서버 시작!")
+    server.serve_forever()
+
+
+if __name__ == "__main__":
+    run()
