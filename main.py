@@ -11,6 +11,7 @@ import funtion.fishSell as fishSell
 import funtion.inventory as inventory
 import funtion.encyclopedia_all as encyclopedia_all
 import funtion.encyclopedia_single as encyclopedia_single
+import funtion.trap as trap
 
 
 class FishingHandler(BaseHTTPRequestHandler):
@@ -97,6 +98,7 @@ class FishingHandler(BaseHTTPRequestHandler):
             fish_id = body.get("fish_id")
             result = encyclopedia_single.get_fish_info(player_id, fish_id)
             self._send_json(result)
+
 
         else:
             self._send_json({"error": "Invalid API endpoint"}, status=404)
