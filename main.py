@@ -11,7 +11,8 @@ import funtion.fishSell as fishSell
 import funtion.inventory as inventory
 import funtion.encyclopedia_all as encyclopedia_all
 import funtion.encyclopedia_single as encyclopedia_single
-import funtion.trap as trap
+import funtion.leaderboard as leaderboard
+import funtion.transfer as transfer
 
 
 class FishingHandler(BaseHTTPRequestHandler):
@@ -98,6 +99,22 @@ class FishingHandler(BaseHTTPRequestHandler):
             fish_id = body.get("fish_id")
             result = encyclopedia_single.get_fish_info(player_id, fish_id)
             self._send_json(result)
+
+        elif path == "/leaderboard":
+            result = leaderboard.get_leaderboard()
+            self._send_json(result)
+
+        elif path == "/transfer":
+            sender_id = body.get("sender_id")
+            receiver_id = body.get("receiver_id")
+            asset_type = body.get("asset_type")  
+            amount = body.get("amount", 0)
+            fish_id = body.get("fish_id")
+
+            result = transfer.transfer_asset(sender_id, receiver_id, asset_type, amount, fish_id)
+            self._send_json(result)
+
+
 
 
         else:
